@@ -37,6 +37,7 @@ export function parseWindow(window: string): number {
     );
   }
 
+  // Regex capture groups are guaranteed to be strings after successful match
   const value = parseFloat(match[1] as string);
   const unit = match[2] as string;
 

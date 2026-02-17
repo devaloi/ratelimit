@@ -73,7 +73,7 @@ describe('TokenBucketAlgorithm', () => {
           refillRate: 1,
           getCurrentTime: now,
         });
-      }).toThrow('Capacity must be greater than 0');
+      }).toThrow('Token bucket capacity must be > 0');
     });
 
     it('should throw if capacity is negative', () => {
@@ -83,7 +83,7 @@ describe('TokenBucketAlgorithm', () => {
           refillRate: 1,
           getCurrentTime: now,
         });
-      }).toThrow('Capacity must be greater than 0');
+      }).toThrow('Token bucket capacity must be > 0');
     });
 
     it('should throw if refillRate is 0', () => {
@@ -93,7 +93,7 @@ describe('TokenBucketAlgorithm', () => {
           refillRate: 0,
           getCurrentTime: now,
         });
-      }).toThrow('Refill rate must be greater than 0');
+      }).toThrow('Token bucket refillRate must be > 0');
     });
 
     it('should throw if refillRate is negative', () => {
@@ -103,7 +103,7 @@ describe('TokenBucketAlgorithm', () => {
           refillRate: -1,
           getCurrentTime: now,
         });
-      }).toThrow('Refill rate must be greater than 0');
+      }).toThrow('Token bucket refillRate must be > 0');
     });
   });
 

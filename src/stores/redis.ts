@@ -10,6 +10,8 @@ export class RedisStore implements Store {
   private readonly prefix: string;
 
   constructor(config: RedisStoreConfig) {
+    // Cast justified: RedisStoreConfig.client is typed as unknown to avoid
+    // forcing ioredis as a direct dependency. Callers must provide a valid Redis client.
     this.client = config.client as Redis;
     this.prefix = config.prefix ?? 'rl:';
   }
@@ -31,6 +33,7 @@ export class RedisStore implements Store {
     if (data === null) {
       return null;
     }
+    // Cast justified: we trust our own stored JSON format
     return JSON.parse(data) as StoreEntry;
   }
 
@@ -69,7 +72,9 @@ export class RedisStore implements Store {
       isNew = true;
     } else {
       // Increment existing field
+      // Cast justified: JSON.parse returns unknown, we trust our own stored format
       entry = JSON.parse(data) as StoreEntry;
+      // Cast justified: increment() is only called on numeric fields (count, tokens)
       const currentValue = (entry[field] as number | undefined) ?? 0;
       entry[field] = currentValue + 1;
     }
@@ -82,6 +87,7 @@ export class RedisStore implements Store {
     }
     await multi.exec();
 
+    // Cast justified: we just set this field to a number above
     return entry[field] as number;
   }
 

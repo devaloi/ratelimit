@@ -35,10 +35,10 @@ export class TokenBucketAlgorithm implements RateLimitAlgorithm {
     this.getCurrentTime = config.getCurrentTime ?? ((): number => Date.now());
 
     if (this.capacity <= 0) {
-      throw new Error('Capacity must be greater than 0');
+      throw new Error(`Token bucket capacity must be > 0. Received: ${config.capacity}`);
     }
     if (this.refillRate <= 0) {
-      throw new Error('Refill rate must be greater than 0');
+      throw new Error(`Token bucket refillRate must be > 0. Received: ${config.refillRate}`);
     }
   }
 

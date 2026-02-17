@@ -116,12 +116,14 @@ export class MemoryStore implements Store {
     } else {
       // Increment existing field
       entry = item.entry;
+      // Cast justified: increment() is only called on numeric fields (count, tokens)
       const currentValue = (entry[field] as number) ?? 0;
       entry[field] = currentValue + 1;
       expiresAt = item.expiresAt;
     }
 
     this.data.set(key, { entry, expiresAt });
+    // Cast justified: we just set this field to a number above
     return Promise.resolve(entry[field] as number);
   }
 
