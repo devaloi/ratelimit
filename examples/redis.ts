@@ -13,7 +13,7 @@
 
 import express from 'express';
 import Redis from 'ioredis';
-import { rateLimit } from '../src/index.js';
+import { rateLimit } from '../src/index';
 
 async function main() {
   const app = express();

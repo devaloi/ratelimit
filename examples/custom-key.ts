@@ -10,7 +10,7 @@
  */
 
 import express from 'express';
-import { rateLimit, headerKeyExtractor } from '../src/index.js';
+import { rateLimit, headerKeyExtractor } from '../src/index';
 
 const app = express();
 

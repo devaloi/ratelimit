@@ -11,7 +11,7 @@
  */
 
 import express from 'express';
-import { rateLimit } from '../src/index.js';
+import { rateLimit } from '../src/index';
 
 const app = express();
 
