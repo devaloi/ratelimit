@@ -5,6 +5,9 @@
  * (fixed window, sliding window, token bucket) and pluggable backends (memory, Redis).
  */
 
+// Main middleware factory
+export { rateLimit, default } from './middleware.js';
+
 // Types
 export type {
   Options,
