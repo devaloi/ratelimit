@@ -112,13 +112,15 @@ export class MemoryStore implements Store {
     if (!item || item.expiresAt <= now) {
       // Create new entry with initial value of 1
       expiresAt = now + ttlMs;
-      entry = { [field]: 1, expiresAt };
+      entry = { expiresAt };
+      // Cast justified: increment() is only called on numeric fields (count, tokens)
+      (entry as Record<string, number>)[field] = 1;
     } else {
       // Increment existing field
       entry = item.entry;
       // Cast justified: increment() is only called on numeric fields (count, tokens)
-      const currentValue = (entry[field] as number) ?? 0;
-      entry[field] = currentValue + 1;
+      const currentValue = (entry[field] as number | undefined) ?? 0;
+      (entry as Record<string, number>)[field] = currentValue + 1;
       expiresAt = item.expiresAt;
     }
 

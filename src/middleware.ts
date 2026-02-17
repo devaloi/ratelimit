@@ -32,15 +32,20 @@ function createStore(options: Options): Store {
     if (storeConfig.client === undefined || storeConfig.client === null) {
       throw new Error('Redis store requires a client instance');
     }
-    return new RedisStore({
+    const redisConfig: { client: unknown; prefix?: string } = {
       client: storeConfig.client,
-      prefix: storeConfig.prefix,
-    });
+    };
+    if (storeConfig.prefix !== undefined) {
+      redisConfig.prefix = storeConfig.prefix;
+    }
+    return new RedisStore(redisConfig);
   }
 
-  return new MemoryStore({
-    cleanupInterval: storeConfig.cleanupInterval,
-  });
+  const memoryConfig: { cleanupInterval?: number } = {};
+  if (storeConfig.cleanupInterval !== undefined) {
+    memoryConfig.cleanupInterval = storeConfig.cleanupInterval;
+  }
+  return new MemoryStore(memoryConfig);
 }
 
 /**

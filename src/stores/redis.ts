@@ -68,7 +68,9 @@ export class RedisStore implements Store {
 
     if (data === null) {
       // Create new entry with field set to 1
-      entry = { [field]: 1 };
+      entry = {};
+      // Cast justified: increment() is only called on numeric fields (count, tokens)
+      (entry as Record<string, number>)[field] = 1;
       isNew = true;
     } else {
       // Increment existing field
@@ -76,7 +78,7 @@ export class RedisStore implements Store {
       entry = JSON.parse(data) as StoreEntry;
       // Cast justified: increment() is only called on numeric fields (count, tokens)
       const currentValue = (entry[field] as number | undefined) ?? 0;
-      entry[field] = currentValue + 1;
+      (entry as Record<string, number>)[field] = currentValue + 1;
     }
 
     // Use MULTI/EXEC for atomic set + pexpire
