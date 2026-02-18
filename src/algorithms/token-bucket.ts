@@ -1,6 +1,7 @@
 import type { Store, StoreEntry } from '../stores/types.js';
 import type { RateLimitResult } from '../types.js';
 import type { RateLimitAlgorithm, TokenBucketConfig } from './types.js';
+import { TTL_BUFFER_MULTIPLIER, MIN_TTL_MS, MS_PER_SECOND } from '../constants.js';
 
 /**
  * Extended configuration for TokenBucketAlgorithm including optional time function.
@@ -59,7 +60,7 @@ export class TokenBucketAlgorithm implements RateLimitAlgorithm {
     } else {
       // Calculate tokens added since last refill (lazy refill)
       const elapsedMs = now - entry.lastRefill;
-      const elapsedSeconds = elapsedMs / 1000;
+      const elapsedSeconds = elapsedMs / MS_PER_SECOND;
       const tokensToAdd = elapsedSeconds * this.refillRate;
 
       // Add tokens but don't exceed capacity
@@ -71,20 +72,9 @@ export class TokenBucketAlgorithm implements RateLimitAlgorithm {
       // Allow request: consume one token
       tokens -= 1;
 
-      // Calculate time until bucket is full (for resetAt) - after consuming
-      const tokensNeededForFull = this.capacity - tokens;
-      const secondsUntilFull = tokensNeededForFull / this.refillRate;
-      const msUntilFull = secondsUntilFull * 1000;
-      const resetAt = new Date(now + msUntilFull);
-
-      // Calculate TTL: time until bucket would be full + buffer
+      const resetAt = this.calculateResetAt(tokens, now);
       const ttlMs = this.calculateTtlMs(tokens);
-
-      const newEntry: StoreEntry = {
-        tokens,
-        lastRefill,
-        expiresAt: now + ttlMs,
-      };
+      const newEntry = this.createEntry(tokens, lastRefill, now, ttlMs);
       await this.store.set(key, newEntry, ttlMs);
 
       return {
@@ -95,11 +85,7 @@ export class TokenBucketAlgorithm implements RateLimitAlgorithm {
       };
     } else {
       // Deny request: not enough tokens
-      // Calculate time until bucket is full (for resetAt)
-      const tokensNeededForFull = this.capacity - tokens;
-      const secondsUntilFull = tokensNeededForFull / this.refillRate;
-      const msUntilFull = secondsUntilFull * 1000;
-      const resetAt = new Date(now + msUntilFull);
+      const resetAt = this.calculateResetAt(tokens, now);
 
       // Calculate how long until we have 1 token
       const tokensNeeded = 1 - tokens;
@@ -108,11 +94,7 @@ export class TokenBucketAlgorithm implements RateLimitAlgorithm {
 
       // Still update the store with current state (for accurate tracking)
       const ttlMs = this.calculateTtlMs(tokens);
-      const newEntry: StoreEntry = {
-        tokens,
-        lastRefill,
-        expiresAt: now + ttlMs,
-      };
+      const newEntry = this.createEntry(tokens, lastRefill, now, ttlMs);
       await this.store.set(key, newEntry, ttlMs);
 
       return {
@@ -140,15 +122,34 @@ export class TokenBucketAlgorithm implements RateLimitAlgorithm {
   }
 
   /**
+   * Calculate the Date when the bucket will be full again.
+   */
+  private calculateResetAt(currentTokens: number, now: number): Date {
+    const tokensNeededForFull = this.capacity - currentTokens;
+    const msUntilFull = (tokensNeededForFull / this.refillRate) * MS_PER_SECOND;
+    return new Date(now + msUntilFull);
+  }
+
+  /**
+   * Build a StoreEntry for the current bucket state.
+   */
+  private createEntry(
+    tokens: number,
+    lastRefill: number,
+    now: number,
+    ttlMs: number,
+  ): StoreEntry {
+    return { tokens, lastRefill, expiresAt: now + ttlMs };
+  }
+
+  /**
    * Calculate TTL for store entry.
    * TTL should be long enough to cover the time until the bucket is full.
    */
   private calculateTtlMs(currentTokens: number): number {
     // Time to refill from current to capacity, plus a buffer
     const tokensToFill = this.capacity - currentTokens;
-    const secondsToFill = tokensToFill / this.refillRate;
-    const msToFill = secondsToFill * 1000;
-    // Add 10% buffer to avoid edge cases
-    return Math.max(msToFill * 1.1, 60000); // Minimum 1 minute TTL
+    const msToFill = (tokensToFill / this.refillRate) * MS_PER_SECOND;
+    return Math.max(msToFill * TTL_BUFFER_MULTIPLIER, MIN_TTL_MS);
   }
 }

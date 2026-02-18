@@ -112,7 +112,7 @@ Creates an Express middleware for rate limiting.
 | `keyExtractor` | `function` | `req.ip` | Function to extract rate limit key from request |
 | `skip` | `function` | — | Function to skip rate limiting for certain requests |
 | `onLimitReached` | `function` | — | Callback when limit is exceeded |
-| `skipFailedRequests` | `boolean` | `false` | Don't count failed requests (status >= 400) |
+| `skipFailedRequests` | `boolean` | `false` | Don't count failed requests (status >= 400). Resets the key on failure rather than decrementing, which may over-allow subsequent requests. |
 | `headers` | `boolean` | `true` | Whether to send rate limit headers |
 | `message` | `string` | `'Too Many Requests'` | Error message for 429 response |
 | `statusCode` | `number` | `429` | HTTP status code for rate limited responses |

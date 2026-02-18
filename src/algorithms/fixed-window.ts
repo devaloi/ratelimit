@@ -1,6 +1,7 @@
 import type { RateLimitResult } from '../types.js';
 import type { Store } from '../stores/types.js';
 import type { RateLimitAlgorithm, FixedWindowConfig } from './types.js';
+import { MS_PER_SECOND } from '../constants.js';
 
 /**
  * Configuration for FixedWindowAlgorithm with optional time provider.
@@ -66,7 +67,7 @@ export class FixedWindowAlgorithm implements RateLimitAlgorithm {
 
     // Check if we're over the limit
     if (currentCount >= this.limit) {
-      const retryAfter = Math.ceil((windowEnd - currentTime) / 1000);
+      const retryAfter = Math.ceil((windowEnd - currentTime) / MS_PER_SECOND);
       return {
         allowed: false,
         limit: this.limit,
@@ -82,7 +83,7 @@ export class FixedWindowAlgorithm implements RateLimitAlgorithm {
 
     // Handle race condition: another request might have incremented first
     if (newCount > this.limit) {
-      const retryAfter = Math.ceil((windowEnd - currentTime) / 1000);
+      const retryAfter = Math.ceil((windowEnd - currentTime) / MS_PER_SECOND);
       return {
         allowed: false,
         limit: this.limit,

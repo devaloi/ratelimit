@@ -2,6 +2,19 @@ import type { Redis } from 'ioredis';
 import type { Store, StoreEntry, RedisStoreConfig } from './types.js';
 
 /**
+ * Validate that a parsed value conforms to the StoreEntry shape.
+ */
+function isStoreEntry(value: unknown): value is StoreEntry {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (v['count'] !== undefined && typeof v['count'] !== 'number') return false;
+  if (v['tokens'] !== undefined && typeof v['tokens'] !== 'number') return false;
+  if (v['lastRefill'] !== undefined && typeof v['lastRefill'] !== 'number') return false;
+  if (v['timestamps'] !== undefined && !Array.isArray(v['timestamps'])) return false;
+  return true;
+}
+
+/**
  * Redis-backed store for rate limiting.
  * Uses ioredis client for Redis operations.
  */
@@ -33,8 +46,13 @@ export class RedisStore implements Store {
     if (data === null) {
       return null;
     }
-    // Cast justified: we trust our own stored JSON format
-    return JSON.parse(data) as StoreEntry;
+    try {
+      const parsed: unknown = JSON.parse(data);
+      if (!isStoreEntry(parsed)) return null;
+      return parsed;
+    } catch {
+      return null;
+    }
   }
 
   /**
@@ -45,14 +63,13 @@ export class RedisStore implements Store {
    */
   async set(key: string, entry: StoreEntry, ttlMs: number): Promise<void> {
     const prefixedKey = this.getKey(key);
-    await this.client.set(prefixedKey, JSON.stringify(entry));
-    await this.client.pexpire(prefixedKey, ttlMs);
+    await this.client.set(prefixedKey, JSON.stringify(entry), 'PX', ttlMs);
   }
 
   /**
    * Atomically increment a numeric field in the entry.
    * Creates the entry if it doesn't exist.
-   * Uses MULTI/EXEC for atomicity.
+   * Uses WATCH/MULTI/EXEC for optimistic locking to prevent race conditions.
    * @param key - The rate limit key
    * @param field - The field to increment (e.g., 'count')
    * @param ttlMs - Time to live in milliseconds (for new entries)
@@ -60,37 +77,45 @@ export class RedisStore implements Store {
    */
   async increment(key: string, field: keyof StoreEntry, ttlMs: number): Promise<number> {
     const prefixedKey = this.getKey(key);
+    const maxRetries = 5;
 
-    // Get current entry
-    const data = await this.client.get(prefixedKey);
-    let entry: StoreEntry;
-    let isNew = false;
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      await this.client.watch(prefixedKey);
 
-    if (data === null) {
-      // Create new entry with field set to 1
-      entry = {};
-      // Cast justified: increment() is only called on numeric fields (count, tokens)
-      (entry as Record<string, number>)[field] = 1;
-      isNew = true;
-    } else {
-      // Increment existing field
-      // Cast justified: JSON.parse returns unknown, we trust our own stored format
-      entry = JSON.parse(data) as StoreEntry;
-      // Cast justified: increment() is only called on numeric fields (count, tokens)
-      const currentValue = (entry[field] as number | undefined) ?? 0;
-      (entry as Record<string, number>)[field] = currentValue + 1;
+      const data = await this.client.get(prefixedKey);
+      let entry: StoreEntry;
+      let isNew = false;
+
+      if (data === null) {
+        entry = {};
+        (entry as Record<string, number>)[field] = 1;
+        isNew = true;
+      } else {
+        try {
+          const parsed: unknown = JSON.parse(data);
+          entry = isStoreEntry(parsed) ? parsed : {};
+        } catch {
+          entry = {};
+        }
+        const currentValue = (entry[field] as number | undefined) ?? 0;
+        (entry as Record<string, number>)[field] = currentValue + 1;
+      }
+
+      const multi = this.client.multi();
+      if (isNew) {
+        multi.set(prefixedKey, JSON.stringify(entry), 'PX', ttlMs);
+      } else {
+        multi.set(prefixedKey, JSON.stringify(entry));
+      }
+      const results = await multi.exec();
+
+      // WATCH abort: results is null when another client modified the key
+      if (results !== null) {
+        return entry[field] as number;
+      }
     }
 
-    // Use MULTI/EXEC for atomic set + pexpire
-    const multi = this.client.multi();
-    multi.set(prefixedKey, JSON.stringify(entry));
-    if (isNew) {
-      multi.pexpire(prefixedKey, ttlMs);
-    }
-    await multi.exec();
-
-    // Cast justified: we just set this field to a number above
-    return entry[field] as number;
+    throw new Error(`Failed to increment key "${key}" after ${maxRetries} retries`);
   }
 
   /**

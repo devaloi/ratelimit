@@ -16,6 +16,7 @@ import { MemoryStore } from './stores/memory.js';
 import { RedisStore } from './stores/redis.js';
 import { ipKeyExtractor } from './extractors/key.js';
 import { parseWindow } from './utils/parse-window.js';
+import { MS_PER_SECOND } from './constants.js';
 
 /**
  * Express middleware handler type.
@@ -101,7 +102,7 @@ function createAlgorithm(options: Options, store: Store): RateLimitAlgorithm {
 function setRateLimitHeaders(res: Response, result: RateLimitResult): void {
   res.setHeader('X-RateLimit-Limit', result.limit);
   res.setHeader('X-RateLimit-Remaining', Math.max(0, result.remaining));
-  res.setHeader('X-RateLimit-Reset', Math.floor(result.resetAt.getTime() / 1000));
+  res.setHeader('X-RateLimit-Reset', Math.floor(result.resetAt.getTime() / MS_PER_SECOND));
 }
 
 /**
@@ -169,8 +170,12 @@ export function rateLimit(options: Options): ExpressMiddleware {
       return;
     }
 
-    // Extract the rate limiting key
+    // Extract the rate limiting key and validate
     const key = keyExtractor(req);
+    if (typeof key !== 'string' || key.length === 0) {
+      next(new Error('keyExtractor must return a non-empty string'));
+      return;
+    }
 
     // Consume a request from the rate limiter
     algorithm
@@ -191,16 +196,13 @@ export function rateLimit(options: Options): ExpressMiddleware {
         if (result.allowed) {
           // Handle skipFailedRequests option
           if (skipFailedRequests) {
-            // We need to hook into the response to potentially decrement count
-            // For simplicity, we track the status code on 'finish'
+            // Note: Resets the entire key on failure rather than decrementing,
+            // since counters are incremented atomically. This may over-allow
+            // subsequent requests for the remainder of the window.
             res.on('finish', () => {
-              // If response failed (status >= 400), we would ideally decrement
-              // However, since counters are already incremented atomically,
-              // we'll reset the key's count for the next request
-              // This is a simplified implementation - production might track differently
               if (res.statusCode >= 400) {
-                algorithm.reset(key).catch(() => {
-                  // Silently ignore reset errors
+                algorithm.reset(key).catch((err) => {
+                  console.error('rate limit reset error:', err);
                 });
               }
             });
@@ -214,8 +216,8 @@ export function rateLimit(options: Options): ExpressMiddleware {
 
           // Call onLimitReached handler if provided
           if (options.onLimitReached) {
-            Promise.resolve(options.onLimitReached(req, res, result)).catch(() => {
-              // Silently ignore handler errors
+            Promise.resolve(options.onLimitReached(req, res, result)).catch((err) => {
+              console.error('onLimitReached error:', err);
             });
           }
 

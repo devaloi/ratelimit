@@ -1,6 +1,7 @@
 import type { RateLimitResult } from '../types.js';
 import type { Store, StoreEntry } from '../stores/types.js';
 import type { RateLimitAlgorithm, SlidingWindowConfig } from './types.js';
+import { MS_PER_SECOND } from '../constants.js';
 
 /**
  * Configuration for sliding window log algorithm with optional time provider.
@@ -49,9 +50,9 @@ export class SlidingWindowAlgorithm implements RateLimitAlgorithm {
     if (currentCount >= this.limit) {
       // Rate limit exceeded
       // Find the oldest timestamp in the window - that's when it will expire
-      const oldestTimestamp = Math.min(...timestamps);
+      const oldestTimestamp = timestamps.length > 0 ? Math.min(...timestamps) : now;
       const resetAt = new Date(oldestTimestamp + this.windowMs);
-      const retryAfter = Math.ceil((oldestTimestamp + this.windowMs - now) / 1000);
+      const retryAfter = Math.ceil((oldestTimestamp + this.windowMs - now) / MS_PER_SECOND);
 
       return {
         allowed: false,
@@ -73,7 +74,7 @@ export class SlidingWindowAlgorithm implements RateLimitAlgorithm {
     await this.store.set(key, newEntry, this.windowMs);
 
     // Calculate reset time based on oldest timestamp
-    const oldestTimestamp = Math.min(...timestamps);
+    const oldestTimestamp = timestamps.length > 0 ? Math.min(...timestamps) : now;
     const resetAt = new Date(oldestTimestamp + this.windowMs);
 
     return {
