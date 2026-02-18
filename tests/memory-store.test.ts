@@ -22,10 +22,13 @@ describe('MemoryStore', () => {
    * Helper to create a store with mocked time.
    */
   function createStore(cleanupInterval?: number): MemoryStore {
-    store = new MemoryStore({
-      cleanupInterval,
+    const config: { cleanupInterval?: number; getCurrentTime: () => number } = {
       getCurrentTime: now,
-    });
+    };
+    if (cleanupInterval !== undefined) {
+      config.cleanupInterval = cleanupInterval;
+    }
+    store = new MemoryStore(config);
     return store;
   }
 

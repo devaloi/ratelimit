@@ -35,13 +35,14 @@ class MockStore implements Store {
 
     if (!item || now() >= item.expiresAt) {
       // Create new entry
-      entry = { [field]: 1 };
+      entry = {};
+      (entry as Record<string, number>)[field] = 1;
       expiresAt = now() + ttlMs;
     } else {
       // Increment existing
       entry = item.entry;
       const currentValue = (entry[field] as number) ?? 0;
-      entry[field] = currentValue + 1;
+      (entry as Record<string, number>)[field] = currentValue + 1;
       expiresAt = item.expiresAt;
     }
 

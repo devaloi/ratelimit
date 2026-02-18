@@ -199,9 +199,13 @@ describe('RedisStore', () => {
 
       for (let i = 0; i < entries.length; i++) {
         const key = `roundtrip-${i}`;
-        await store.set(key, entries[i], 60000);
+        const entry = entries[i];
+        if (entry === undefined) {
+          continue;
+        }
+        await store.set(key, entry, 60000);
         const result = await store.get(key);
-        expect(result).toEqual(entries[i]);
+        expect(result).toEqual(entry);
       }
     });
   });

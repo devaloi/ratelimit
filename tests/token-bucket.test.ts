@@ -173,8 +173,8 @@ describe('TokenBucketAlgorithm', () => {
 
       // All 10 should be allowed
       expect(results.every((r) => r.allowed)).toBe(true);
-      expect(results[0].remaining).toBe(9);
-      expect(results[9].remaining).toBe(0);
+      expect(results[0]?.remaining).toBe(9);
+      expect(results[9]?.remaining).toBe(0);
     });
 
     it('should deny request after burst exhausts capacity', async () => {

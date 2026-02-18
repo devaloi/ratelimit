@@ -245,7 +245,7 @@ describe('rateLimit middleware', () => {
         rateLimit({
           limit: 1,
           window: '1m',
-          keyExtractor: (req: Request) => req.query.userId as string,
+          keyExtractor: (req: Request) => req.query['userId'] as string,
         })
       );
       app.get('/test', (_req: Request, res: Response) => {
