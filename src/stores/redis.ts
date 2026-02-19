@@ -5,12 +5,22 @@ import type { Store, StoreEntry, RedisStoreConfig } from './types.js';
  * Validate that a parsed value conforms to the StoreEntry shape.
  */
 function isStoreEntry(value: unknown): value is StoreEntry {
-  if (typeof value !== 'object' || value === null) return false;
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
   const v = value as Record<string, unknown>;
-  if (v['count'] !== undefined && typeof v['count'] !== 'number') return false;
-  if (v['tokens'] !== undefined && typeof v['tokens'] !== 'number') return false;
-  if (v['lastRefill'] !== undefined && typeof v['lastRefill'] !== 'number') return false;
-  if (v['timestamps'] !== undefined && !Array.isArray(v['timestamps'])) return false;
+  if (v['count'] !== undefined && typeof v['count'] !== 'number') {
+    return false;
+  }
+  if (v['tokens'] !== undefined && typeof v['tokens'] !== 'number') {
+    return false;
+  }
+  if (v['lastRefill'] !== undefined && typeof v['lastRefill'] !== 'number') {
+    return false;
+  }
+  if (v['timestamps'] !== undefined && !Array.isArray(v['timestamps'])) {
+    return false;
+  }
   return true;
 }
 
@@ -48,7 +58,9 @@ export class RedisStore implements Store {
     }
     try {
       const parsed: unknown = JSON.parse(data);
-      if (!isStoreEntry(parsed)) return null;
+      if (!isStoreEntry(parsed)) {
+        return null;
+      }
       return parsed;
     } catch {
       return null;

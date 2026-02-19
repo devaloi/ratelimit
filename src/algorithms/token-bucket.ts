@@ -133,12 +133,7 @@ export class TokenBucketAlgorithm implements RateLimitAlgorithm {
   /**
    * Build a StoreEntry for the current bucket state.
    */
-  private createEntry(
-    tokens: number,
-    lastRefill: number,
-    now: number,
-    ttlMs: number,
-  ): StoreEntry {
+  private createEntry(tokens: number, lastRefill: number, now: number, ttlMs: number): StoreEntry {
     return { tokens, lastRefill, expiresAt: now + ttlMs };
   }
 
